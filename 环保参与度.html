@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>环保行动周参与度 · 山脊重叠波形图</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js">
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #0E2732;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'SF Pro Display', -apple-system, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+        }
+
+        .chart-card {
+            width: 100%;
+            max-width: 860px;
+            background: rgba(14, 39, 49, 0.85);
+            border: 1px solid rgba(40, 100, 221, 0.4);
+            box-shadow: inset 0 0 14px rgba(40, 100, 221, 0.15), 0 10px 25px rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            padding: 24px 24px 18px 24px;
+            backdrop-filter: blur(6px);
+            transition: border 0.3s;
+            position: relative;
+        }
+
+        .chart-card:hover {
+            border-color: rgba(40, 100, 221, 0.8);
+        }
+
+        .box-corner {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+        }
+        .lt {
+            border-left: 3px solid #2864DD;
+            border-top: 3px solid #2864DD;
+            top: -2px;
+            left: -2px;
+        }
+        .rt {
+            border-right: 3px solid #FCE801;
+            border-top: 3px solid #FCE801;
+            top: -2px;
+            right: -2px;
+        }
+        .lb {
+            border-left: 3px solid #48EA76;
+            border-bottom: 3px solid #48EA76;
+            bottom: -2px;
+            left: -2px;
+        }
+        .rb {
+            border-right: 3px solid #2864DD;
+            border-bottom: 3px solid #2864DD;
+            bottom: -2px;
+            right: -2px;
+        }
+
+        .chart-title {
+            font-size: 15px;
+            color: #ffffff;
+            margin-bottom: 16px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 10px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 420px;
+        }
+
+        .custom-legend {
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            margin-top: 14px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 11px;
+            color: #8fa1cc;
+            letter-spacing: 0.3px;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            margin-right: 6px;
+        }
+
+        @media (max-width: 600px) {
+            .chart-card {
+                padding: 16px 12px 12px 12px;
+            }
+            .chart-title {
+                font-size: 13px;
+                padding-bottom: 6px;
+                margin-bottom: 10px;
+            }
+            .chart-container {
+                height: 320px;
+            }
+            .custom-legend {
+                gap: 16px;
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-card">
+        <div class="box-corner lt"></div>
+        <div class="box-corner rt"></div>
+        <div class="box-corner lb"></div>
+        <div class="box-corner rb"></div>
+
+        <div class="chart-title">各年龄段环保行动周参与度 · 山脊重叠波形图</div>
+
+        <div id="ridgeChart" class="chart-container"></div>
+
+        <div class="custom-legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #48EA76; box-shadow: 0 0 8px rgba(72,234,118,0.4);"></div>
+                青少年
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FCE801; box-shadow: 0 0 8px rgba(252,232,1,0.3);"></div>
+                中青年
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2864DD; box-shadow: 0 0 8px rgba(40,100,221,0.4);"></div>
+                老年人
+            </div>
+            <div class="legend-item" style="color: rgba(196,198,241,0.25); font-size: 10px;">
+                ⏱ 时长 (h) · 重叠山脊
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+            const youth = [2.8, 2.2, 2.5, 2.0, 3.0, 4.5, 5.2];
+            const midAge = [3.5, 3.8, 3.2, 3.9, 4.0, 4.8, 4.2];
+            const elder = [2.0, 2.3, 2.1, 2.5, 2.7, 3.2, 3.0];
+
+            const chartDom = document.getElementById('ridgeChart');
+            const myChart = echarts.init(chartDom);
+
+            const OFFSET_YOUTH = 0;
+            const OFFSET_MID = 3.5;
+            const OFFSET_ELDER = 7.0;
+
+            const youthOffset = youth.map(v => v + OFFSET_YOUTH);
+            const midOffset = midAge.map(v => v + OFFSET_MID);
+            const elderOffset = elder.map(v => v + OFFSET_ELDER);
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(4, 18, 66, 0.95)',
+                    borderColor: '#2864DD',
+                    borderWidth: 1,
+                    textStyle: { color: '#ffffff', fontSize: 12 },
+                    formatter: function(params) {
+                        let html = `<div style="font-weight:600;margin-bottom:4px;">${params[0].axisValue}</div>`;
+                        params.forEach(p => {
+                            let rawValue = 0;
+                            if (p.seriesName === '青少年') rawValue = youth[params[0].dataIndex];
+                            else if (p.seriesName === '中青年') rawValue = midAge[params[0].dataIndex];
+                            else if (p.seriesName === '老年人') rawValue = elder[params[0].dataIndex];
+                            html +=
+                                `<div style="color:#C4C6F1;display:flex;justify-content:space-between;gap:20px;">
+                                        <span>${p.marker} ${p.seriesName}</span>
+                                        <span style="font-weight:bold;color:${p.color};">${rawValue.toFixed(1)} h</span>
+                                    </div>`;
+                        });
+                        return html;
+                    }
+                },
+                grid: {
+                    left: '6%',
+                    right: '6%',
+                    bottom: '10%',
+                    top: '8%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: days,
+                    boundaryGap: false,
+                    axisLabel: {
+                        color: '#8fa1cc',
+                        fontSize: 11,
+                        fontWeight: '400'
+                    },
+                    axisLine: {
+                        lineStyle: { color: 'rgba(40, 100, 221, 0.3)' }
+                    },
+                    axisTick: {
+                        lineStyle: { color: 'rgba(40, 100, 221, 0.2)' }
+                    },
+                    splitLine: { show: false }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '时长 (h)  ·  重叠偏移',
+                    nameTextStyle: {
+                        color: '#8fa1cc',
+                        fontSize: 10,
+                        padding: [0, 30, 0, 0]
+                    },
+                    min: 0,
+                    max: 11,
+                    splitLine: {
+                        lineStyle: {
+                            color: 'rgba(255,255,255,0.05)',
+                            type: 'solid'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#8fa1cc',
+                        fontSize: 9,
+                        formatter: (v) => {
+                            if (Number.isInteger(v)) return v;
+                            return '';
+                        }
+                    },
+                    axisLine: {
+                        lineStyle: { color: 'rgba(40, 100, 221, 0.15)' }
+                    }
+                },
+                series: [{
+                    name: '青少年',
+                    type: 'line',
+                    data: youthOffset,
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 5,
+                    lineStyle: {
+                        color: '#48EA76',
+                        width: 2.5,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(72, 234, 118, 0.3)'
+                    },
+                    itemStyle: {
+                        color: '#48EA76',
+                        borderColor: '#0E2732',
+                        borderWidth: 1
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(72, 234, 118, 0.45)' },
+                            { offset: 0.5, color: 'rgba(72, 234, 118, 0.15)' },
+                            { offset: 1, color: 'rgba(72, 234, 118, 0)' }
+                        ])
+                    },
+                    label: { show: false },
+                    emphasis: {
+                        focus: 'series',
+                        lineStyle: { width: 3.5, shadowBlur: 18 }
+                    }
+                }, {
+                    name: '中青年',
+                    type: 'line',
+                    data: midOffset,
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 5,
+                    lineStyle: {
+                        color: '#FCE801',
+                        width: 2.5,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(252, 232, 1, 0.3)'
+                    },
+                    itemStyle: {
+                        color: '#FCE801',
+                        borderColor: '#0E2732',
+                        borderWidth: 1
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(252, 232, 1, 0.35)' },
+                            { offset: 0.5, color: 'rgba(252, 232, 1, 0.12)' },
+                            { offset: 1, color: 'rgba(252, 232, 1, 0)' }
+                        ])
+                    },
+                    label: { show: false },
+                    emphasis: {
+                        focus: 'series',
+                        lineStyle: { width: 3.5, shadowBlur: 18 }
+                    }
+                }, {
+                    name: '老年人',
+                    type: 'line',
+                    data: elderOffset,
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 5,
+                    lineStyle: {
+                        color: '#2864DD',
+                        width: 2.5,
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(40, 100, 221, 0.3)'
+                    },
+                    itemStyle: {
+                        color: '#2864DD',
+                        borderColor: '#0E2732',
+                        borderWidth: 1
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(40, 100, 221, 0.4)' },
+                            { offset: 0.5, color: 'rgba(40, 100, 221, 0.12)' },
+                            { offset: 1, color: 'rgba(40, 100, 221, 0)' }
+                        ])
+                    },
+                    label: { show: false },
+                    emphasis: {
+                        focus: 'series',
+                        lineStyle: { width: 3.5, shadowBlur: 18 }
+                    }
+                }]
+            };
+
+            myChart.setOption(option);
+
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
+
+            if (window.ResizeObserver) {
+                const card = document.querySelector('.chart-card');
+                const ro = new ResizeObserver(() => { myChart.resize(); });
+                ro.observe(card);
+            }
+        })();
+    </script>
+</body>
+</html>
