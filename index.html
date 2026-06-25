@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>中国空气质量地图 · 净空计划</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <style>
+        /* ================================================================
+           基础重置 & 全局样式
+           ================================================================ */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #0E2732;
+            color: #ffffff;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* ================================================================
+           全局动画关键帧 (CSS Keyframes)
+           ================================================================ */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInLeft {
+            from { opacity: 0; transform: translateX(-40px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* ================================================================
+           顶部导航栏 — 引入入场动画
+           ================================================================ */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 65px;
+            background: linear-gradient(to bottom, rgba(3, 13, 48, 0.95), rgba(3, 13, 48, 0.4));
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 40px;
+            border-bottom: 1px solid rgba(40, 100, 221, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            flex-shrink: 0;
+            /* 入场动画 */
+            animation: fadeInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #48EA76;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(72, 234, 118, 0.6);
+            font-family: monospace;
+            white-space: nowrap;
+        }
+
+        .nav-logo {
+            height: 44px;
+            width: auto;
+            object-fit: contain;
+            flex-shrink: 0;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .logo-text {
+            display: inline;
+            font-size: 12px;
+            font-weight: inherit;
+            color: inherit;
+            letter-spacing: inherit;
+            text-shadow: inherit;
+            font-family: inherit;
+            margin-left: -6px;
+        }
+        
+        .logo-text-wrap {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .logo-en {
+            font-size: 9px;
+            color: #48EA76;
+            text-shadow: 0 0 15px rgba(72, 234, 118, 0.6);
+            letter-spacing: 1px;
+            font-family: monospace;
+            margin-top: 3px;
+        }
+
+        nav {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        nav a {
+            color: #8fa1cc;
+            text-decoration: none;
+            padding: 6px 18px;
+            font-size: 18px;
+            font-weight: 500;
+            border-radius: 4px;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative;
+            white-space: nowrap;
+        }
+
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: #48EA76;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        nav a:hover::after,
+        nav a.active::after {
+            width: 80%;
+            left: 10%;
+        }
+
+        nav a.active,
+        nav a:hover {
+            color: #48EA76;
+            text-shadow: 0 0 10px rgba(72, 234, 118, 0.3);
+            background: rgba(72, 234, 118, 0.05);
+        }
+
+        /* ================================================================
+           主体布局
+           ================================================================ */
+        .main-layout {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+            padding-top: 65px;
+            box-sizing: border-box;
+        }
+
+        /* ================================================================
+           左侧年份面板 — 引入滑入动画与更流畅的按钮动画
+           ================================================================ */
+        .year-panel {
+            width: 120px;
+            background: rgba(14, 39, 49, 0.6);
+            backdrop-filter: blur(6px);
+            border-right: 1px solid rgba(40, 100, 221, 0.15);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 10px;
+            flex-shrink: 0;
+            gap: 4px;
+            /* 入场动画 & 延迟配合 */
+            animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation-delay: 0.15s;
+        }
+
+        .year-panel-label {
+            font-size: 10px;
+            color: #8fa1cc;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            font-weight: 400;
+            opacity: 0.6;
+        }
+
+        .year-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+            align-items: center;
+        }
+
+        .year-btn {
+            background: rgba(40, 100, 221, 0.10);
+            border: 1px solid rgba(40, 100, 221, 0.20);
+            color: #8fa1cc;
+            padding: 6px 0;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 30px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            font-family: inherit;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(4px);
+            width: 72px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .year-btn:hover {
+            background: rgba(40, 100, 221, 0.30);
+            border-color: rgba(40, 100, 221, 0.6);
+            color: #C4C6F1;
+            transform: translateX(4px);
+            box-shadow: 0 0 20px rgba(40, 100, 221, 0.2);
+        }
+
+        .year-btn.active {
+            background: rgba(72, 234, 118, 0.15);
+            border-color: #48EA76;
+            color: #48EA76;
+            box-shadow: 0 0 25px rgba(72, 234, 118, 0.25), inset 0 0 15px rgba(72, 234, 118, 0.05);
+            text-shadow: 0 0 10px rgba(72, 234, 118, 0.3);
+            transform: translateX(6px);
+        }
+
+        /* ================================================================
+           右侧地图容器 — 引入淡入缩放动画
+           ================================================================ */
+        .map-wrapper {
+            flex: 1;
+            position: relative;
+            background: transparent;
+            overflow: hidden;
+            min-height: 0;
+            padding: 0;
+            margin: 0;
+            border-width: 0;
+            cursor: default;
+            /* 入场动画 & 延迟配合 */
+            animation: fadeInScale 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation-delay: 0.3s;
+        }
+
+        #china-map {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            position: relative;
+            padding: 0;
+            margin: 0;
+            border-width: 0;
+            cursor: default;
+        }
+
+        #china-map canvas {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            user-select: none !important;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border-width: 0 !important;
+            display: block !important;
+        }
+
+        /* ================================================================
+           地图上方年份标题
+           ================================================================ */
+        .map-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 8;
+            background: rgba(14, 39, 49, 0.78);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 10px 32px;
+            border-radius: 40px;
+            border: 1px solid rgba(40, 100, 221, 0.20);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            font-size: 20px;
+            font-weight: 500;
+            color: #C4C6F1;
+            letter-spacing: 2px;
+            pointer-events: none;
+            white-space: nowrap;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .map-title .year-highlight {
+            color: #48EA76;
+            font-weight: 600;
+            text-shadow: 0 0 20px rgba(72, 234, 118, 0.30);
+            display: inline-block;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* ================================================================
+           悬浮信息与图例
+           ================================================================ */
+        .map-note {
+            position: absolute;
+            bottom: 32px;
+            left: 16px;
+            font-size: 10px;
+            color: rgba(196, 198, 241, 0.35);
+            background: rgba(14, 39, 49, 0.5);
+            backdrop-filter: blur(2px);
+            padding: 2px 10px;
+            border-radius: 4px;
+            z-index: 10;
+            pointer-events: none;
+            font-family: monospace;
+            border: 1px solid rgba(40, 100, 221, 0.08);
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(14, 39, 49, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 16px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #C4C6F1;
+            z-index: 10;
+            pointer-events: none;
+            line-height: 2.0;
+            border: 1px solid rgba(40, 100, 221, 0.25);
+            box-shadow: 0 6px 32px rgba(0, 0, 0, 0.15); /* 修改为 0.15 */
+            min-width: 130px;
+        }
+
+        .legend .legend-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #8fa1cc;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 3px;
+        }
+
+        .legend-color-box {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Loading提示 */
+        .loading-tip {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(196, 198, 241, 0.3);
+            font-size: 14px;
+            letter-spacing: 2px;
+            z-index: 1;
+            pointer-events: none;
+            text-align: center;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .loading-tip .spinner {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(40, 100, 221, 0.1);
+            border-top-color: #48EA76;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+
+        /* ================================================================
+           响应式布局（保持原有断点）
+           ================================================================ */
+        @media (max-width: 900px) {
+            header { padding: 0 20px; height: 55px; }
+            .logo { font-size: 16px; gap: 0px; }
+            .nav-logo { height: 26px; }
+            .logo-text { font-size: 16px; margin-left: -4px; }
+            .nav-inner { gap: 20px; }
+            nav a { padding: 4px 14px; font-size: 16px; }
+            .main-layout { padding-top: 55px; }
+            .year-panel { width: 90px; padding: 14px 6px; }
+            .year-btn { width: 58px; font-size: 11px; padding: 5px 0; }
+            .year-panel-label { font-size: 9px; margin-bottom: 8px; }
+            .legend { padding: 12px 16px; font-size: 12px; min-width: 110px; bottom: 16px; right: 16px; line-height: 1.8; }
+            .legend .legend-title { font-size: 10px; }
+            .legend-color-box { width: 16px; height: 16px; }
+            .info-text { font-size: 10px; padding: 4px 10px; bottom: 12px; left: 12px; }
+            .map-note { font-size: 9px; bottom: 42px; left: 12px; }
+            .map-title { font-size: 16px; padding: 8px 22px; top: 14px; letter-spacing: 1.5px; }
+        }
+
+        @media (max-width: 600px) {
+            header { padding: 0 12px; height: 48px; }
+            .logo { font-size: 14px; letter-spacing: 1px; gap: 0px; }
+            .nav-logo { height: 22px; }
+            .logo-text { font-size: 14px; margin-left: -2px; }
+            .nav-inner { gap: 12px; }
+            nav a { padding: 4px 10px; font-size: 14px; }
+            nav { gap: 2px; }
+            .main-layout { padding-top: 48px; flex-direction: column; }
+            .year-panel { width: 100%; flex-direction: row; flex-wrap: wrap; justify-content: center; padding: 8px 12px; border-right: none; border-bottom: 1px solid rgba(40, 100, 221, 0.15); gap: 4px; max-height: 80px; overflow-y: auto; }
+            .year-panel-label { display: none; }
+            .year-list { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 4px; width: auto; }
+            .year-btn { width: 44px; font-size: 10px; padding: 3px 0; }
+            .year-btn.active { transform: translateX(0) translateY(2px); }
+            .year-btn:hover { transform: translateX(0); }
+            .legend { padding: 10px 12px; font-size: 10px; min-width: 80px; bottom: 10px; right: 10px; line-height: 1.6; border-radius: 6px; }
+            .legend .legend-title { font-size: 8px; margin-bottom: 4px; }
+            .legend-color-box { width: 12px; height: 12px; }
+            .legend-row { gap: 6px; margin-bottom: 2px; }
+            .info-text { font-size: 8px; padding: 3px 8px; bottom: 8px; left: 8px; white-space: normal; max-width: 160px; }
+            .map-note { font-size: 7px; bottom: 32px; left: 8px; padding: 1px 6px; }
+            .loading-tip { font-size: 11px; }
+            .loading-tip .spinner { width: 20px; height: 20px; }
+            .map-title { font-size: 13px; padding: 6px 16px; top: 10px; letter-spacing: 1px; border-radius: 30px; white-space: nowrap; }
+        }
+
+        @media (max-width: 400px) {
+            header { padding: 0 8px; height: 40px; }
+            .logo { font-size: 12px; gap: 0px; }
+            .nav-logo { height: 18px; }
+            .logo-text { font-size: 12px; margin-left: -1px; }
+            .nav-inner { gap: 8px; }
+            nav a { padding: 2px 6px; font-size: 12px; }
+            .main-layout { padding-top: 40px; }
+            .year-panel { padding: 4px 6px; max-height: 60px; }
+            .year-btn { width: 34px; font-size: 8px; padding: 2px 0; border-radius: 20px; }
+            .legend { padding: 8px 10px; font-size: 9px; min-width: 60px; bottom: 8px; right: 8px; line-height: 1.4; }
+            .legend .legend-title { font-size: 7px; }
+            .legend-color-box { width: 10px; height: 10px; }
+            .legend-row { gap: 4px; }
+            .map-title { font-size: 10px; padding: 4px 12px; top: 6px; letter-spacing: 0.5px; border-radius: 20px; }
+        }
+    </style>
+    <base target="_blank">
+</head>
+<body>
+
+    <header>
+        <div class="nav-inner">
+            <div class="logo">
+                <img class="nav-logo" src="LOGO.png" alt="LOGO" />
+                <div class="logo-text-wrap">
+                    <span class="logo-text">呼吸的警报</span>
+                    <span class="logo-en">Breath Alert</span>
+                </div>
+            </div>
+            <nav>
+                <a href="index.html" class="active">首页</a>
+                <a href="jia.html">污染溯源</a>
+                <a href="lung.html">呼吸之痛</a>
+                <a href="bike.html">净空之路</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <div class="year-panel">
+            <div class="year-panel-label">◈ 年份</div>
+            <div class="year-list" id="yearList"></div>
+        </div>
+
+        <div class="map-wrapper" id="mapWrapper">
+            <div class="map-title" id="mapTitle">
+                <span class="year-highlight" id="titleYear">2015</span>年全国年均空气质量状况
+            </div>
+
+            <div id="china-map"></div>
+            <div class="loading-tip" id="loadingTip">
+                <div class="spinner"></div>
+                <div>⏳ 加载地图数据...</div>
+            </div>
+
+            <div class="map-note">审图号：GS（2024）0650号</div>
+
+            <div class="legend">
+                <div class="legend-title">空气质量等级</div>
+                <div class="legend-row"><span class="legend-color-box" style="background:#FF4444;"></span> 重度污染</div>
+                <div class="legend-row"><span class="legend-color-box" style="background:#FF8C00;"></span> 中度污染</div>
+                <div class="legend-row"><span class="legend-color-box" style="background:#FCE801;"></span> 轻度污染</div>
+                <div class="legend-row"><span class="legend-color-box" style="background:#48EA76;"></span> 良好</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./air-quality-data.js"></script>
+
+    <script>
+        let currentYear = 2015;
+        const yearList = document.getElementById('yearList');
+        const titleYear = document.getElementById('titleYear');
+        const mapTitle = document.getElementById('mapTitle');
+
+        // 更新地图上方标题（移除了绿光呼吸灯闪烁逻辑）
+        function updateMapTitle(year) {
+            titleYear.textContent = year;
+        }
+
+        function createYearButtons() {
+            yearList.innerHTML = '';
+            for (let y = 2015; y <= 2025; y++) {
+                const btn = document.createElement('button');
+                btn.className = 'year-btn' + (y === currentYear ? ' active' : '');
+                btn.textContent = y;
+                btn.dataset.year = y;
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentYear = parseInt(this.dataset.year);
+                    renderMap(currentYear);
+                    updateMapTitle(currentYear);
+                });
+                yearList.appendChild(btn);
+            }
+        }
+
+        // ================================================================
+        // ECharts 地图渲染 (注入平滑数据过渡动画)
+        // ================================================================
+        let myChart = null;
+        const levelMap = { 1: '重度污染', 2: '中度污染', 3: '轻度污染', 4: '良好' };
+
+        function renderMap(year) {
+            if (!myChart) return;
+
+            const loadingTip = document.getElementById('loadingTip');
+            if (loadingTip) loadingTip.style.display = 'none';
+
+            let seriesData = getDataByYear(year);
+
+            seriesData = seriesData.map(item => {
+                if (item.name === '南海诸岛') {
+                    return { ...item, label: { show: true, color: '#8fa1cc', fontSize: 10 } };
+                }
+                return item;
+            });
+
+            const option = {
+                animationDuration: 1000,
+                animationDurationUpdate: 800,
+                animationEasingUpdate: 'cubicInOut',
+                
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: 'rgba(3, 13, 48, 0.92)',
+                    borderColor: 'rgba(40, 100, 221, 0.5)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    padding: 10,
+                    textStyle: {
+                        color: 'rgb(196, 198, 241)',
+                        fontSize: 12,
+                        lineHeight: 18,
+                        fontFamily: '"Microsoft YaHei", "SF Pro Display", sans-serif'
+                    },
+                    extraCssText: [
+                        'box-shadow: rgba(0, 0, 0, 0.2) 1px 2px 10px;',
+                        'transition: opacity 0.2s cubic-bezier(0.23, 1, 0.32, 1),',
+                        'visibility 0.2s cubic-bezier(0.23, 1, 0.32, 1),',
+                        'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);',
+                        'pointer-events: none;',
+                        'border-style: solid;',
+                        'white-space: nowrap;'
+                    ].join(' '),
+                    formatter: function(params) {
+                        if (!params.value) return `<strong>${params.name}</strong><br/>未分级`;
+                        const levelText = levelMap[params.value] || '未分级';
+                        return `<strong>${params.name}</strong><br/>${levelText}`;
+                    }
+                },
+                visualMap: {
+                    type: 'piecewise',
+                    pieces: [
+                        { min: 1, max: 1, color: '#FF4444' },
+                        { min: 2, max: 2, color: '#FF8C00' },
+                        { min: 3, max: 3, color: '#FCE801' },
+                        { min: 4, max: 4, color: '#48EA76' }
+                    ],
+                    show: false
+                },
+                series: [{
+                    type: 'map',
+                    map: 'china',
+                    data: seriesData,
+                    zoom: 1.35,
+                    center: [105.0, 35.5],
+                    roam: true,
+                    scaleLimit: {
+                        min: 0.5,
+                        max: 5
+                    },
+                    label: {
+                        show: false,
+                        color: '#C4C6F1',
+                        fontSize: 10,
+                        fontWeight: '400'
+                    },
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontWeight: '600',
+                            color: '#ffffff',
+                            fontSize: 12,
+                            textShadowColor: 'rgba(0,0,0,0.8)',
+                            textShadowBlur: 4
+                        },
+                        itemStyle: {
+                            areaColor: 'rgba(72, 234, 118, 0.25)',
+                            borderColor: '#48EA76',
+                            borderWidth: 1.5,
+                            shadowBlur: 20,
+                            shadowColor: 'rgba(72, 234, 118, 0.2)'
+                        }
+                    },
+                    itemStyle: {
+                        borderColor: 'rgba(196, 198, 241, 0.25)',
+                        borderWidth: 0.8,
+                        areaColor: 'rgba(40, 100, 221, 0.08)',
+                        shadowBlur: 0
+                    },
+                    select: {
+                        label: { show: true },
+                        itemStyle: { areaColor: 'rgba(72, 234, 118, 0.20)' }
+                    }
+                }],
+                backgroundColor: 'transparent'
+            };
+
+            myChart.setOption(option, true);
+        }
+
+        function init() {
+            createYearButtons();
+
+            const dom = document.getElementById('china-map');
+            myChart = echarts.init(dom, 'dark');
+
+            fetch('./中国_省.geojson')
+                .then(res => {
+                    if (!res.ok) throw new Error('GeoJSON 加载失败 (HTTP ' + res.status + ')');
+                    return res.json();
+                })
+                .then(geoJson => {
+                    echarts.registerMap('china', geoJson);
+                    const loadingTip = document.getElementById('loadingTip');
+                    if (loadingTip) loadingTip.style.display = 'none';
+                    updateMapTitle(currentYear);
+                    renderMap(currentYear);
+                })
+                .catch(err => {
+                    console.error('加载地图数据失败:', err);
+                    const loadingTip = document.getElementById('loadingTip');
+                    if (loadingTip) {
+                        loadingTip.innerHTML = '⚠️ 地图数据加载失败<br><span style="font-size:12px;opacity:0.6;">请确保 中国_省.geojson 文件存在</span>';
+                        loadingTip.style.color = 'rgba(255, 68, 68, 0.6)';
+                        loadingTip.querySelector('.spinner')?.remove();
+                    }
+                });
+
+            window.addEventListener('resize', () => {
+                if (myChart) myChart.resize();
+            });
+
+            const mapWrapper = document.getElementById('mapWrapper');
+            if (window.ResizeObserver) {
+                const ro = new ResizeObserver(() => {
+                    if (myChart) myChart.resize();
+                });
+                ro.observe(mapWrapper);
+            }
+        }
+
+        if (document.readyState === 'complete') {
+            init();
+        } else {
+            window.addEventListener('load', init);
+        }
+
+        console.log('🌍 中国空气质量地图 · 动效平滑增强版已加载');
+    </script>
+</body>
+</html>

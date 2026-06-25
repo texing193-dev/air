@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>空气污染溯源 - 叙事可视化系统 (v10)</title>
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js">
+    </script>
+
+    <style>
+        /* ================================================================
+                   基础重置 & 全局样式
+                   ================================================================ */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #0E2732;
+            color: #ffffff;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* ================================================================
+                   顶部导航栏 — 完整迁移自「净空之路」页面
+                   ================================================================ */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 65px;
+            background: linear-gradient(to bottom, rgba(3, 13, 48, 0.95), rgba(3, 13, 48, 0.4));
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 40px;
+            border-bottom: 1px solid rgba(40, 100, 221, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            flex-shrink: 0;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* ---- 品牌标识：LOGO 图片 + 文字（flex 容器） ---- */
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #48EA76;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(72, 234, 118, 0.6);
+            font-family: monospace;
+            white-space: nowrap;
+        }
+
+        .nav-logo {
+            height: 44px;
+            width: auto;
+            object-fit: contain;
+            flex-shrink: 0;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+
+        .logo-text {
+            display: inline;
+            font-size: 12px;
+            font-weight: inherit;
+            color: inherit;
+            letter-spacing: inherit;
+            text-shadow: inherit;
+            font-family: inherit;
+            margin-left: -6px;
+        }
+        /* 文字垂直容器：上下排列 */
+       .logo-text-wrap {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+       }
+       /* 英文副标题样式 */
+       .logo-en {
+            font-size: 9px;
+            color: #48EA76;
+            text-shadow: 0 0 15px rgba(72, 234, 118, 0.6);
+            letter-spacing: 1px;
+            font-family: monospace;
+            margin-top: 3px;
+        }
+
+        nav {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        nav a {
+            color: #8fa1cc;
+            text-decoration: none;
+            padding: 6px 18px;
+            font-size: 18px;
+            font-weight: 500;
+            border-radius: 4px;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative;
+            white-space: nowrap;
+        }
+
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: #48EA76;
+            transition: all 0.3s;
+        }
+
+        nav a:hover::after,
+        nav a.active::after {
+            width: 80%;
+            left: 10%;
+        }
+
+        nav a.active,
+        nav a:hover {
+            color: #48EA76;
+            text-shadow: 0 0 10px rgba(72, 234, 118, 0.3);
+            background: rgba(72, 234, 118, 0.05);
+        }
+
+        /* ================================================================
+                   大屏主网格布局 — 添加 padding-top 为导航栏留出空间
+                   ================================================================ */
+        .container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1.3fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 24px;
+            padding: 24px;
+            padding-top: 89px; /* 65px (导航栏高度) + 24px (间距) */
+            position: relative;
+            min-height: 0;
+        }
+
+        /* ================================================================
+                    图表卡片样式 (来自目标系统)
+                   ================================================================ */
+        .chart-box {
+            background: rgba(14, 39, 49, 0.85);
+            border: 1px solid rgba(40, 100, 221, 0.4);
+            box-shadow: inset 0 0 14px rgba(40, 100, 221, 0.15), 0 10px 15px rgba(0, 0, 0, 0.05);
+            border-radius: 6px;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(6px);
+            transition: border 0.3s;
+            overflow: hidden;
+        }
+        .chart-box:hover {
+            border-color: rgba(40, 100, 221, 0.8);
+        }
+
+        .box-corner {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+        }
+        .lt {
+            border-left: 3px solid #2864DD;
+            border-top: 3px solid #2864DD;
+            top: -2px;
+            left: -2px;
+        }
+        .rt {
+            border-right: 3px solid #FCE801;
+            border-top: 3px solid #FCE801;
+            top: -2px;
+            right: -2px;
+        }
+        .lb {
+            border-left: 3px solid #48EA76;
+            border-bottom: 3px solid #48EA76;
+            bottom: -2px;
+            left: -2px;
+        }
+        .rb {
+            border-right: 3px solid #2864DD;
+            border-bottom: 3px solid #2864DD;
+            bottom: -2px;
+            right: -2px;
+        }
+
+        .chart-title {
+            font-size: 15px;
+            color: #ffffff;
+            margin-bottom: 15px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 8px;
+            flex-shrink: 0;
+        }
+        .chart-title::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 14px;
+            background: linear-gradient(to bottom, #48EA76, #2864DD);
+            margin-right: 10px;
+            box-shadow: 0 0 8px #48EA76;
+        }
+        .chart-div {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+        }
+
+        .left-top {
+            grid-column: 1;
+            grid-row: 1;
+        }
+        .left-bottom {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        .right-top {
+            grid-column: 3;
+            grid-row: 1;
+        }
+        .right-bottom {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        /* ================================================================
+                    图例一行网格 (来自目标系统)
+                   ================================================================ */
+        .custom-legend {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 4px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10.5px;
+            color: #8fa1cc;
+            white-space: nowrap;
+        }
+        .legend-color {
+            width: 7px;
+            height: 7px;
+            border-radius: 2px;
+            margin-right: 5px;
+            flex-shrink: 0;
+        }
+
+        /* ================================================================
+                    中央区域 — 粒子模型容器
+                   ================================================================ */
+        .center-area {
+            grid-column: 2;
+            grid-row: 1 / span 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            overflow: hidden;
+        }
+
+        #webglContainer {
+            width: 100%;
+            flex: 1;
+            position: relative;
+            cursor: grab;
+            min-height: 0;
+        }
+        #webglContainer:active {
+            cursor: grabbing;
+        }
+
+
+        /* 切换按钮 (来自粒子模型, 适配中央区域) */
+        .switch-btn {
+            background: linear-gradient(135deg, rgba(40, 100, 221, 0.25) 0%, rgba(72, 234, 118, 0.10) 100%);
+            border: 1.5px solid rgba(196, 198, 241, 0.40);
+            color: #C4C6F1;
+            padding: 6px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 40px;
+            transition: all 0.4s cubic-bezier(0.075, 0.82, 0.165, 1);
+            box-shadow: 0 0 20px rgba(196, 198, 241, 0.08), inset 0 0 10px rgba(196, 198, 241, 0.05);
+            letter-spacing: 2px;
+            backdrop-filter: blur(6px);
+            font-family: inherit;
+            white-space: nowrap;
+            margin-bottom: 3.5%;
+        }
+        .switch-btn:hover {
+            background: rgba(196, 198, 241, 0.15);
+            border-color: rgba(196, 198, 241, 0.70);
+            box-shadow: 0 0 35px rgba(196, 198, 241, 0.15);
+            transform: translateY(-2px);
+            color: #48EA76;
+        }
+        
+
+        .switch-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* 状态指示小点 (来自粒子模型) */
+        .status-dot-wrap {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 300;
+            color: rgba(196, 198, 241, 0.30);
+            letter-spacing: 1px;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 0.25;
+                transform: scale(0.8);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+
+        /* 右下角信息 */
+        .info-tip-particle {
+            position: absolute;
+            bottom: 70px;
+            right: 20px;
+            z-index: 5;
+            font-size: 10px;
+            font-weight: 300;
+            color: rgba(196, 198, 241, 0.10);
+            letter-spacing: 0.5px;
+            text-align: right;
+            line-height: 1.6;
+            pointer-events: none;
+        }
+
+        /* ================================================================
+                响应式
+                   ================================================================ */
+        @media (max-width: 900px) {
+            .container {
+                gap: 12px;
+                padding: 12px;
+                padding-top: 79px;
+            }
+            .chart-title {
+                font-size: 12px;
+                margin-bottom: 8px;
+                padding-bottom: 4px;
+            }
+            .custom-legend {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 2px;
+                margin-top: 4px;
+                padding-top: 4px;
+            }
+            .legend-item {
+                font-size: 9px;
+            }
+            header {
+                padding: 0 16px;
+                height: 55px;
+            }
+            .logo {
+                font-size: 16px;
+                gap: 0px;
+            }
+            .nav-logo {
+                height: 26px;
+            }
+            .logo-text {
+                font-size: 16px;
+                margin-left: -4px;
+            }
+            nav a {
+                padding: 4px 14px;
+                font-size: 16px;
+            }
+            .nav-inner {
+                gap: 20px;
+            }
+            .switch-btn {
+                padding: 8px 20px;
+                font-size: 12px;
+                margin-bottom: 14px;
+            }
+            .interaction-tip {
+                font-size: 10px;
+                bottom: 70px;
+            }
+            .status-dot-wrap {
+                bottom: 52px;
+                font-size: 10px;
+            }
+            .info-tip-particle {
+                display: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr 1fr;
+                gap: 8px;
+                padding: 8px;
+                padding-top: 72px;
+            }
+            .left-top {
+                grid-column: 1;
+                grid-row: 1;
+            }
+            .left-bottom {
+                grid-column: 2;
+                grid-row: 1;
+            }
+            .right-top {
+                grid-column: 1;
+                grid-row: 2;
+            }
+            .right-bottom {
+                grid-column: 2;
+                grid-row: 2;
+            }
+            .center-area {
+                grid-column: 1 / span 2;
+                grid-row: 3;
+                min-height: 200px;
+            }
+            .switch-btn {
+                padding: 6px 14px;
+                font-size: 10px;
+                margin-bottom: 8px;
+            }
+            .status-dot-wrap {
+                bottom: 28px;
+                font-size: 8px;
+            }
+            .chart-box {
+                padding: 10px;
+            }
+            .chart-title {
+                font-size: 10px;
+                margin-bottom: 4px;
+                padding-bottom: 4px;
+            }
+            .chart-title::before {
+                width: 3px;
+                height: 10px;
+                margin-right: 6px;
+            }
+            .custom-legend {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 2px;
+                margin-top: 4px;
+                padding-top: 4px;
+            }
+            .legend-item {
+                font-size: 8px;
+            }
+            .legend-color {
+                width: 5px;
+                height: 5px;
+                margin-right: 3px;
+            }
+            header {
+                padding: 0 12px;
+                height: 46px;
+            }
+            .logo {
+                font-size: 14px;
+                letter-spacing: 1px;
+                gap: 0px;
+            }
+            .nav-logo {
+                height: 22px;
+            }
+            .logo-text {
+                font-size: 14px;
+                margin-left: -2px;
+            }
+            nav a {
+                padding: 4px 10px;
+                font-size: 14px;
+            }
+            .nav-inner {
+                gap: 12px;
+            }
+            .box-corner {
+                width: 8px;
+                height: 8px;
+            }
+            .lt,
+            .rt {
+                border-width: 2px;
+                top: -1px;
+            }
+            .lb,
+            .rb {
+                border-width: 2px;
+                bottom: -1px;
+            }
+            .info-tip-particle {
+                display: none;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .container {
+                gap: 4px;
+                padding: 4px;
+                padding-top: 64px;
+            }
+            .chart-box {
+                padding: 6px;
+            }
+            .chart-title {
+                font-size: 9px;
+            }
+            .switch-btn {
+                padding: 4px 10px;
+                font-size: 9px;
+            }
+            header {
+                padding: 0 8px;
+                height: 40px;
+            }
+            .logo {
+                font-size: 12px;
+                gap: 0px;
+            }
+            .nav-logo {
+                height: 18px;
+            }
+            .logo-text {
+                font-size: 12px;
+                margin-left: -1px;
+            }
+            nav a {
+                padding: 2px 6px;
+                font-size: 12px;
+            }
+            .nav-inner {
+                gap: 8px;
+            }
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+
+    <!-- ================================================================
+    导航栏 — 完整迁移自「净空之路」页面，当前页面为 "污染溯源"
+    ================================================================ -->
+    <header>
+        <div class="nav-inner">
+            <div class="logo">
+              <img class="nav-logo" src="LOGO.png" alt="LOGO" />
+               <!-- 文字垂直容器 -->
+               <div class="logo-text-wrap">
+                  <span class="logo-text">呼吸的警报</span>
+                  <span class="logo-en">Breath Alert</span>
+                 </div>
+            </div>
+            <nav>
+                <a href="index.html">首页</a>
+                <a href="jia.html" class="active">污染溯源</a>
+                <a href="lung.html">呼吸之痛</a>
+                <a href="bike.html">净空之路</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ================================================================
+    主视屏可视化面板
+    ================================================================ -->
+    <div class="container">
+
+        <!-- 左上：环形图 -->
+        <div class="chart-box left-top">
+            <div class="box-corner lt"></div>
+            <div class="box-corner rt"></div>
+            <div class="box-corner lb"></div>
+            <div class="box-corner rb"></div>
+            <div class="chart-title">主要空气污染物构成比</div>
+            <div id="ringChart" class="chart-div"></div>
+            <div class="custom-legend">
+                <div class="legend-item"><div class="legend-color" style="background:#48EA76"></div>PM₂.₅</div>
+                <div class="legend-item"><div class="legend-color" style="background:#2864DD"></div>PM₁₀</div>
+                <div class="legend-item"><div class="legend-color" style="background:#FCE801"></div>VOCs</div>
+                <div class="legend-item"><div class="legend-color" style="background:#00FFFF"></div>NO₂</div>
+                <div class="legend-item"><div class="legend-color" style="background:#FF5722"></div>O₃</div>
+                <div class="legend-item"><div class="legend-color" style="background:#E040FB"></div>SO₂</div>
+            </div>
+        </div>
+
+        <!-- 左下：桑基图 -->
+        <div class="chart-box left-bottom">
+            <div class="box-corner lt"></div>
+            <div class="box-corner rt"></div>
+            <div class="box-corner lb"></div>
+            <div class="box-corner rb"></div>
+            <div class="chart-title">污染源特征流向传导</div>
+            <div id="sankeyChart" class="chart-div"></div>
+        </div>
+
+        <!-- ================================================================
+        中央：粒子模型 (来自源文件, 适配到 #webglContainer)
+        ================================================================ -->
+        <div class="center-area">
+
+            <div id="webglContainer" class="three-container"></div>
+
+            <button class="switch-btn" id="switchBtn">切换到 PM2.5 模型</button>
+
+            <div class="status-dot-wrap">
+                <span class="status-dot">pm10与pm2.5大小对比</span>
+                <span></span>
+            </div>
+
+
+        </div>
+
+        <!-- 右上：横向柱状图 -->
+        <div class="chart-box right-top">
+            <div class="box-corner lt"></div>
+            <div class="box-corner rt"></div>
+            <div class="box-corner lb"></div>
+            <div class="box-corner rb"></div>
+            <div class="chart-title">PM2.5 主要污染源占比</div>
+            <div id="barChart" class="chart-div"></div>
+        </div>
+
+        <!-- 右下：折线图 -->
+        <div class="chart-box right-bottom">
+            <div class="box-corner lt"></div>
+            <div class="box-corner rt"></div>
+            <div class="box-corner lb"></div>
+            <div class="box-corner rb"></div>
+            <div class="chart-title">四季颗粒物浓度演变对比 (μg/m³)</div>
+            <div id="lineChart" class="chart-div"></div>
+        </div>
+
+    </div>
+
+    <!-- ================================================================
+    Import Map — 加载 Three.js ES Module
+    ================================================================ -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- ================================================================
+    主脚本：ECharts 图表 + 粒子模型 (ES Module)
+    ================================================================ -->
+    <script type="module">
+        // ================================================================
+        // 1. ECharts 图表初始化 (来自目标系统)
+        // ================================================================
+
+        // 1.1 环形图 (左上)
+        const ringChart = echarts.init(document.getElementById('ringChart'));
+        ringChart.setOption({
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'item',
+                backgroundColor: 'rgba(4, 18, 66, 0.95)',
+                borderColor: '#2864DD',
+                borderWidth: 1,
+                textStyle: { color: '#ffffff', fontSize: 12 },
+                formatter: (params) =>
+                    `<div style="font-weight:600">${params.name}</div><div style="color:#C4C6F1;margin-top:4px">占比：${params.value}%</div>`
+            },
+            series: [{
+                name: '成分占比',
+                type: 'pie',
+                radius: ['65%', '92%'],
+                center: ['50%', '50%'],
+                avoidLabelOverlap: true,
+                itemStyle: { borderRadius: 5, borderColor: '#030D30', borderWidth: 2 },
+                label: { show: true, position: 'outside', color: '#c4ccdf', fontSize: 11, formatter: '{b}',
+                    bleedMargin: 5 },
+                labelLine: { show: true, length: 8, length2: 6, lineStyle: { color: 'rgba(255,255,255,0.15)' } },
+                data: [
+                    { value: 45, name: 'PM₂.₅  45%', itemStyle: { color: '#48EA76' } },
+                    { value: 20, name: 'PM₁₀  20%', itemStyle: { color: '#2864DD' } },
+                    { value: 15, name: 'VOCs  15%', itemStyle: { color: '#FCE801' } },
+                    { value: 10, name: 'NO₂  10%', itemStyle: { color: '#00FFFF' } },
+                    { value: 7, name: 'O₃  7%', itemStyle: { color: '#FF5722' } },
+                    { value: 3, name: 'SO₂  3%', itemStyle: { color: '#E040FB' } }
+                ]
+            }]
+        });
+
+        // 1.2 桑基图 (左下)
+        const sankeyChart = echarts.init(document.getElementById('sankeyChart'));
+        sankeyChart.setOption({
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'item',
+                backgroundColor: 'rgba(4, 18, 66, 0.95)',
+                borderColor: '#2864DD',
+                borderWidth: 1,
+                textStyle: { color: '#ffffff', fontSize: 12 },
+                formatter: (params) => {
+                    if (params.dataType === 'edge') {
+                        return `<div style="font-weight:600">传导路径</div><div style="color:#C4C6F1;margin-top:4px">${params.data.source} → ${params.data.target}<br/>强度：${params.data.value}</div>`;
+                    }
+                    return `<div style="font-weight:600">${params.name}</div><div style="color:#C4C6F1;margin-top:4px">空气污染节点</div>`;
+                }
+            },
+            series: [{
+                type: 'sankey',
+                left: '16%',
+                top: '12%',
+                right: '16%',
+                bottom: '12%',
+                nodeWidth: 14,
+                nodeGap: 18,
+                layout: 'none',
+                draggable: false,
+                roam: false,
+                focusNodeAdjacency: 'allEdges',
+                nodeAlign: 'justify',
+                data: [
+                    { name: '燃煤', itemStyle: { color: '#2864DD' }, label: { position: 'left', distance: 10 } },
+                    { name: '机动车', itemStyle: { color: '#FCE801' }, label: { position: 'left', distance: 10 } },
+                    { name: '工业生产', itemStyle: { color: '#48EA76' }, label: { position: 'left', distance: 10 } },
+                    { name: 'PM2.5', itemStyle: { color: '#C4C6F1' }, label: { position: 'right', distance: 10 } },
+                    { name: 'SO₂', itemStyle: { color: '#E040FB' }, label: { position: 'right', distance: 10 } },
+                    { name: 'NO₂', itemStyle: { color: '#00FFFF' }, label: { position: 'right', distance: 10 } }
+                ],
+                links: [
+                    { source: '燃煤', target: 'PM2.5', value: 15 },
+                    { source: '燃煤', target: 'SO₂', value: 20 },
+                    { source: '机动车', target: 'PM2.5', value: 12 },
+                    { source: '机动车', target: 'NO₂', value: 18 },
+                    { source: '工业生产', target: 'PM2.5', value: 25 },
+                    { source: '工业生产', target: 'SO₂', value: 10 }
+                ],
+                lineStyle: { color: 'gradient', curveness: 0.45, opacity: 0.28 },
+                label: { color: '#ffffff', fontSize: 11, fontWeight: '500' }
+            }]
+        });
+
+        // 1.3 横向条形图 (右上)
+        const barChart = echarts.init(document.getElementById('barChart'));
+        barChart.setOption({
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                backgroundColor: 'rgba(4, 18, 66, 0.95)',
+                borderColor: '#2864DD',
+                borderWidth: 1,
+                textStyle: { color: '#ffffff', fontSize: 12 },
+                formatter: '{b0}: <span style="color:#C4C6F1;font-weight:bold;">{c0}%</span> 贡献份额'
+            },
+            grid: { left: '4%', right: '15%', bottom: '4%', top: '5%', containLabel: true },
+            xAxis: {
+                type: 'value',
+                splitLine: { lineStyle: { color: 'rgba(40, 100, 221, 0.25)', type: 'solid' } },
+                axisLabel: { color: '#8fa1cc', fontSize: 10 },
+                axisLine: { show: true, lineStyle: { color: 'rgba(40, 100, 221, 0.5)' } }
+            },
+            yAxis: {
+                type: 'category',
+                data: ['散煤采暖', '化工', '秸秆焚烧', '扬尘', '机动车尾气', '工业燃煤'],
+                axisLabel: { color: '#8fa1cc', fontSize: 11, fontWeight: '500' },
+                axisLine: { show: true, lineStyle: { color: 'rgba(40, 100, 221, 0.6)', width: 1.5 } }
+            },
+            series: [{
+                type: 'bar',
+                barWidth: '45%',
+                data: [5, 10, 10, 15, 25, 35],
+                animationDurationHover: 200,
+                itemStyle: { color: '#96C753', borderRadius: [0, 4, 4, 0] },
+                emphasis: {
+                    itemStyle: { color: '#FFFF01', shadowBlur: 8, shadowColor: 'rgba(196, 198, 241, 0.6)' }
+                },
+                label: { show: true, position: 'right', formatter: '{c}%', color: '#C4C6F1', fontWeight: 'bold' }
+            }]
+        });
+
+        // 1.4 折线图 (右下)
+        const lineChart = echarts.init(document.getElementById('lineChart'));
+        lineChart.setOption({
+            backgroundColor: 'transparent',
+            tooltip: { trigger: 'axis', backgroundColor: 'rgba(4, 18, 66, 0.9)', borderColor: '#2864DD',
+                textStyle: { color: '#fff' } },
+            legend: { data: ['PM2.5', 'PM10'], textStyle: { color: '#8fa1cc' }, top: 0, right: 10 },
+            grid: { left: '4%', right: '6%', bottom: '6%', top: '22%', containLabel: true },
+            xAxis: {
+                type: 'category',
+                boundaryGap: false,
+                data: ['春季', '夏季', '秋季', '冬季'],
+                axisLabel: { color: '#8fa1cc' },
+                axisLine: { lineStyle: { color: 'rgba(40, 100, 221, 0.3)' } }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'μg/m³',
+                nameTextStyle: { color: '#8fa1cc', fontSize: 12, padding: [0, 0, 0, 10] },
+                splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+                axisLabel: { color: '#8fa1cc' }
+            },
+            series: [{
+                name: 'PM2.5',
+                type: 'line',
+                data: [45, 22, 55, 88],
+                smooth: true,
+                lineStyle: { color: '#48EA76', width: 3, shadowBlur: 10, shadowColor: 'rgba(72, 234, 118, 0.4)' },
+                itemStyle: { color: '#48EA76' },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(72, 234, 118, 0.25)' },
+                        { offset: 1, color: 'rgba(72, 234, 118, 0)' }
+                    ])
+                }
+            }, {
+                name: 'PM10',
+                type: 'line',
+                data: [95, 48, 80, 135],
+                smooth: true,
+                lineStyle: { color: '#FCE801', width: 3, shadowBlur: 10, shadowColor: 'rgba(252, 232, 1, 0.4)' },
+                itemStyle: { color: '#FCE801' },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(252, 232, 1, 0.15)' },
+                        { offset: 1, color: 'rgba(252, 232, 1, 0)' }
+                    ])
+                }
+            }]
+        });
+
+        // ================================================================
+        // 2. Three.js 粒子模型 — 背景色改为 #0E2732
+        // ================================================================
+
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // 2.1 配置（粒子参数保持不变，背景色改为 #0E2732）
+        const CONFIG = {
+            bgColor: 0x0E2732,
+            particleColor: new THREE.Color('#C4C6F1'),
+            pm25: {
+                radius: 2.0,
+                count: 2800,
+                size: 0.09,
+                thickness: 0.30,
+                label: 'PM2.5 可入肺微细颗粒物',
+                sub: '直径 ≤ 2.5 μm · 2800 个致密微粒'
+            },
+            pm10: {
+                radius: 8.0,
+                count: 6000,
+                size: 0.18,
+                thickness: 0.55,
+                label: 'PM10 悬浮颗粒物',
+                sub: '直径 ≤ 10 μm · 6000 个柔和发光微粒'
+            }
+        };
+
+        // 2.2 获取容器
+        const containerEl = document.getElementById('webglContainer');
+
+        // 2.3 场景 / 相机 / 渲染器
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(CONFIG.bgColor);
+        scene.fog = new THREE.FogExp2(CONFIG.bgColor, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(45, containerEl.clientWidth / containerEl.clientHeight, 0.1, 200);
+        camera.position.set(12, 8, 21.33);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: false
+        });
+        renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        containerEl.appendChild(renderer.domElement);
+
+        // 2.4 控制器
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.enableRotate = true;
+        controls.enableZoom = true;
+        controls.enablePan = false;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.6;
+        controls.minDistance = 2;
+        controls.maxDistance = 60;
+        controls.target.set(0, 0, 0);
+        controls.update();
+
+        // 2.5 粒子纹理
+        function createParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            const center = 32;
+            const radius = 30;
+            const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius);
+            gradient.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+            gradient.addColorStop(0.15, 'rgba(255, 255, 255, 0.95)');
+            gradient.addColorStop(0.5, 'rgba(220, 222, 255, 0.70)');
+            gradient.addColorStop(0.8, 'rgba(180, 182, 230, 0.30)');
+            gradient.addColorStop(1.0, 'rgba(196, 198, 241, 0.0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+        const particleTexture = createParticleTexture();
+
+        // 2.6 创建粒子系统
+        function createParticleSystem(radius, count, size, thickness) {
+            const positions = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = radius + (Math.random() - 0.5) * thickness * 2;
+                positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = r * Math.cos(phi);
+            }
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({
+                color: CONFIG.particleColor,
+                size: size,
+                map: particleTexture,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                transparent: true,
+                opacity: 0.92,
+                sizeAttenuation: true,
+            });
+            const points = new THREE.Points(geometry, material);
+            points.userData = { geometry, material, baseSize: size };
+            return points;
+        }
+
+        const pm25Data = CONFIG.pm25;
+        const pm10Data = CONFIG.pm10;
+
+        const pm25System = createParticleSystem(
+            pm25Data.radius,
+            pm25Data.count,
+            pm25Data.size,
+            pm25Data.thickness
+        );
+        const pm10System = createParticleSystem(
+            pm10Data.radius,
+            pm10Data.count,
+            pm10Data.size,
+            pm10Data.thickness
+        );
+
+        pm25System.visible = false;
+        pm25System.material.opacity = 0;
+        pm10System.visible = true;
+        pm10System.material.opacity = 1;
+
+        scene.add(pm25System);
+        scene.add(pm10System);
+
+        // 2.7 背景星点
+        function createStarField() {
+            const starCount = 400;
+            const positions = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount; i++) {
+                const r = 25 + Math.random() * 40;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = r * Math.cos(phi);
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const mat = new THREE.PointsMaterial({
+                color: 0x6A7FAA,
+                size: 0.08,
+                transparent: true,
+                opacity: 0.35,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                sizeAttenuation: true,
+            });
+            return new THREE.Points(geo, mat);
+        }
+        const stars = createStarField();
+        scene.add(stars);
+
+        // 2.8 状态管理
+        let currentMode = 'pm10';
+        let isTransitioning = false;
+        const switchBtn = document.getElementById('switchBtn');
+
+        // 2.9 切换动画
+        function switchModel(targetMode) {
+            if (isTransitioning || targetMode === currentMode) return;
+            isTransitioning = true;
+
+            const fromSystem = currentMode === 'pm25' ? pm25System : pm10System;
+            const toSystem = targetMode === 'pm25' ? pm25System : pm10System;
+
+            const targetPos = targetMode === 'pm25' ?
+                new THREE.Vector3(5.33, 4, 10.67) :
+                new THREE.Vector3(12, 8, 21.33);
+            const startPos = camera.position.clone();
+
+            toSystem.visible = true;
+            toSystem.material.opacity = 0;
+
+            const duration = 600;
+            const startTime = performance.now();
+            const startOpacityFrom = fromSystem.material.opacity;
+
+            function animateTransition(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease = progress < 0.5 ?
+                    4 * progress * progress * progress :
+                    1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+                fromSystem.material.opacity = startOpacityFrom * (1 - ease);
+                toSystem.material.opacity = ease;
+
+                camera.position.lerpVectors(startPos, targetPos, ease);
+                controls.update();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateTransition);
+                } else {
+                    fromSystem.material.opacity = 0;
+                    toSystem.material.opacity = 1;
+                    fromSystem.visible = false;
+                    camera.position.copy(targetPos);
+                    controls.update();
+                    currentMode = targetMode;
+                    isTransitioning = false;
+                    updateUI(targetMode);
+                }
+            }
+            requestAnimationFrame(animateTransition);
+        }
+
+        // 2.10 UI 更新
+        function updateUI(mode) {
+            const data = mode === 'pm25' ? pm25Data : pm10Data;
+            const targetLabel = mode === 'pm25' ? 'PM10' : 'PM2.5';
+            switchBtn.textContent = `切换到 ${targetLabel} 模型`;
+        }
+
+        // 2.11 事件绑定
+        switchBtn.addEventListener('click', () => {
+            const target = currentMode === 'pm25' ? 'pm10' : 'pm25';
+            switchModel(target);
+        });
+
+        renderer.domElement.addEventListener('dblclick', () => {
+            const target = currentMode === 'pm25' ? 'pm10' : 'pm25';
+            switchModel(target);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.repeat) {
+                e.preventDefault();
+                const target = currentMode === 'pm25' ? 'pm10' : 'pm25';
+                switchModel(target);
+            }
+        });
+
+        // 2.12 窗口自适应 (粒子模型)
+        function onResizeParticle() {
+            const w = containerEl.clientWidth;
+            const h = containerEl.clientHeight;
+            if (w > 0 && h > 0) {
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, h);
+            }
+        }
+
+        // 2.13 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            stars.rotation.y += 0.00008;
+            stars.rotation.x += 0.00002;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // 2.14 初始化
+        camera.position.set(12, 8, 21.33);
+        controls.update();
+        updateUI('pm10');
+
+        // ================================================================
+        // 3. 全局 Resize 统一处理
+        // ================================================================
+        function onGlobalResize() {
+            ringChart.resize();
+            sankeyChart.resize();
+            barChart.resize();
+            lineChart.resize();
+            onResizeParticle();
+        }
+
+        window.addEventListener('resize', onGlobalResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            onResizeParticle();
+        });
+        resizeObserver.observe(containerEl);
+    </script>
+
+</body>
+</html>
